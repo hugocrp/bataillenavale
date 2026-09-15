@@ -5,5 +5,7 @@ public enum ShotOutcome
     Miss,
     Hit,
     Sunk,
-    AlreadyPlayed
+    AlreadyPlayed,
+    MineHit,
+    TurnSkipped
 }

@@ -1,15 +1,24 @@
+@using BattleShip.Models
 @using BattleShip.Models.Contracts
 
 <div class="board-grid">
+    <div class="board-row">
+        <span class="board-label"></span>
+        @for (var col = 0; col < GridSize; col++)
+        {
+            <span class="board-label">@ColumnLabel(col)</span>
+        }
+    </div>
     @for (var row = 0; row < GridSize; row++)
     {
         var currentRow = row;
         <div class="board-row">
+            <span class="board-label">@(row + 1)</span>
             @for (var col = 0; col < GridSize; col++)
             {
                 var currentCol = col;
                 var cell = GetCell(currentRow, currentCol);
-                var alreadyPlayed = cell.State is "Hit" or "Miss" or "Sunk";
+                var alreadyPlayed = cell.State is nameof(CellState.Hit) or nameof(CellState.Miss) or nameof(CellState.Sunk) or nameof(CellState.MineHit);
                 <button type="button"
                         class="board-cell @cell.State.ToLowerInvariant()"
                         disabled="@(!Interactive || alreadyPlayed)"
@@ -22,10 +31,10 @@
 </div>
 
 @code {
-    private const int GridSize = 10;
     private Dictionary<(int Row, int Col), CellDto>? _lookup;
 
     [Parameter, EditorRequired] public IReadOnlyList<CellDto> Cells { get; set; } = [];
+    [Parameter] public int GridSize { get; set; } = Board.DefaultSize;
     [Parameter] public bool Interactive { get; set; }
     [Parameter] public EventCallback<(int Row, int Col)> OnCellClick { get; set; }
 
@@ -34,18 +43,22 @@
     private CellDto GetCell(int row, int col)
     {
         _lookup ??= Cells.ToDictionary(c => (c.Row, c.Col));
-        return _lookup.TryGetValue((row, col), out var cell) ? cell : new CellDto(row, col, "Unknown");
+        return _lookup.TryGetValue((row, col), out var cell) ? cell : new CellDto(row, col, nameof(CellState.Unknown));
     }
 
     private Task OnCellClicked(int row, int col) =>
         Interactive ? OnCellClick.InvokeAsync((row, col)) : Task.CompletedTask;
 
+    private static char ColumnLabel(int col) => (char)('A' + col);
+
     private static string CellLabel(string state) => state switch
     {
-        "Hit" => "✹",
-        "Sunk" => "☠",
-        "Miss" => "•",
-        "Ship" => "▦",
+        nameof(CellState.Hit) => "✹",
+        nameof(CellState.Sunk) => "☠",
+        nameof(CellState.Miss) => "•",
+        nameof(CellState.Ship) => "▦",
+        nameof(CellState.Mine) => "☢",
+        nameof(CellState.MineHit) => "💥",
         _ => ""
     };
 }

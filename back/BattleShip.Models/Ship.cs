@@ -15,6 +15,7 @@ public sealed class Ship
 
     public string Name { get; }
     public IReadOnlyList<Coordinate> Cells { get; }
+    public IReadOnlyCollection<Coordinate> Hits => _hits;
     public int Size => Cells.Count;
     public bool IsSunk => _hits.Count == Cells.Count;
 

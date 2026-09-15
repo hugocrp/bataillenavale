@@ -5,6 +5,7 @@
     <Project Path="back/BattleShip.Tests/BattleShip.Tests.csproj" />
   </Folder>
   <Folder Name="/front/">
+    <Project Path="front/BattleShip.App.Tests/BattleShip.App.Tests.csproj" />
     <Project Path="front/BattleShip.App/BattleShip.App.csproj" />
   </Folder>
 </Solution>

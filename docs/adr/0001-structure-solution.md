@@ -1,7 +1,7 @@
 # ADR 0001 : Structure de la solution et disposition back/front
 
 ## Statut et date
-Accepté — 2026-09-15.
+Accepté — 15/09/2026.
 
 ## Contexte
 Le socle imposé (diapo 6 du support) requiert une API ASP.NET Core en Minimal API, un front Blazor WebAssembly, une bibliothèque de modèles partagée et un projet de tests, le tout en .NET 10. Le déroulé du support (diapo 15/28) propose de placer les quatre projets à plat à la racine du dépôt. Nous souhaitons cependant une séparation physique claire entre le code serveur et le code client dès le début du projet.
@@ -22,6 +22,3 @@ Structure en deux sous-dossiers : `back/` (BattleShip.API, BattleShip.Models, Ba
 
 ## Vérification et réexamen
 `dotnet build` et `dotnet test` exécutés depuis la racine compilent l'ensemble de la solution et exécutent les tests sans erreur, ce qui confirme que les références inter-dossiers fonctionnent correctement. À réexaminer si un projet supplémentaire partagé entre back et front est introduit.
-
-## Références
-- 2026-09-15 sur l'initialisation de la solution dans prompt.md.

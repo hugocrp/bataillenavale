@@ -1,0 +1,123 @@
+@using BattleShip.Models
+@using BattleShip.Models.Contracts
+
+<div class="fleet-setup">
+    <div class="fleet-setup-controls">
+        <p>Sélectionnez un navire, une orientation, puis cliquez sur la grille pour le placer.</p>
+
+        <ul class="fleet-list">
+            @foreach (var slot in Fleet)
+            {
+                var placed = IsPlaced(slot.Name);
+                <li class="@(placed ? "placed" : "") @(slot.Name == _selectedName ? "selected" : "")"
+                    @onclick="() => SelectShip(slot.Name)">
+                    @slot.Name (@slot.Size) @(placed ? "✓" : "")
+                </li>
+            }
+        </ul>
+
+        <div class="orientation-toggle">
+            <button type="button" class="btn btn-sm @(_orientation == "Horizontal" ? "btn-secondary" : "btn-outline-secondary")"
+                    @onclick='() => _orientation = "Horizontal"'>
+                Horizontal
+            </button>
+            <button type="button" class="btn btn-sm @(_orientation == "Vertical" ? "btn-secondary" : "btn-outline-secondary")"
+                    @onclick='() => _orientation = "Vertical"'>
+                Vertical
+            </button>
+        </div>
+
+        @if (_error is not null)
+        {
+            <p class="error">@_error</p>
+        }
+
+        <div class="fleet-setup-actions">
+            <button class="btn btn-outline-secondary" @onclick="Reset">Recommencer</button>
+            <button class="btn btn-primary" disabled="@(!AllPlaced)" @onclick="Confirm">Valider le placement</button>
+        </div>
+    </div>
+
+    <BoardGrid Cells="PreviewCells" Interactive="true" OnCellClick="TryPlace" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<FleetSlotDto> Fleet { get; set; } = [];
+    [Parameter] public EventCallback<IReadOnlyList<ShipPlacementDto>> OnConfirmed { get; set; }
+
+    private readonly List<ShipPlacementDto> _placements = [];
+    private string? _selectedName;
+    private string _orientation = "Horizontal";
+    private string? _error;
+
+    protected override void OnParametersSet() =>
+        _selectedName ??= Fleet.FirstOrDefault(f => !IsPlaced(f.Name))?.Name;
+
+    private bool AllPlaced => _placements.Count == Fleet.Count;
+
+    private bool IsPlaced(string name) => _placements.Any(p => p.Name == name);
+
+    private IReadOnlyList<CellDto> PreviewCells =>
+        _placements
+            .SelectMany(p => ExpandCells(p, Fleet.First(f => f.Name == p.Name).Size))
+            .Select(c => new CellDto(c.Row, c.Col, nameof(CellState.Ship)))
+            .ToList();
+
+    private static IEnumerable<(int Row, int Col)> ExpandCells(ShipPlacementDto placement, int size)
+    {
+        for (var i = 0; i < size; i++)
+        {
+            yield return placement.Orientation == "Horizontal"
+                ? (placement.Row, placement.Col + i)
+                : (placement.Row + i, placement.Col);
+        }
+    }
+
+    private void SelectShip(string name)
+    {
+        if (!IsPlaced(name))
+            _selectedName = name;
+    }
+
+    private void TryPlace((int Row, int Col) target)
+    {
+        _error = null;
+        if (_selectedName is null)
+            return;
+
+        var slot = Fleet.First(f => f.Name == _selectedName);
+        var placement = new ShipPlacementDto(slot.Name, target.Row, target.Col, _orientation);
+        var cells = ExpandCells(placement, slot.Size).ToList();
+
+        if (cells.Any(c => c.Row < 0 || c.Row >= Board.DefaultSize || c.Col < 0 || c.Col >= Board.DefaultSize))
+        {
+            _error = $"{slot.Name} déborde de la grille.";
+            return;
+        }
+
+        var occupied = PreviewCells.Select(c => (c.Row, c.Col)).ToHashSet();
+        if (cells.Any(occupied.Contains))
+        {
+            _error = $"{slot.Name} chevauche un autre navire.";
+            return;
+        }
+
+        _placements.Add(placement);
+        _selectedName = Fleet.FirstOrDefault(f => !IsPlaced(f.Name))?.Name;
+    }
+
+    private void Reset()
+    {
+        _placements.Clear();
+        _error = null;
+        _selectedName = Fleet.FirstOrDefault()?.Name;
+    }
+
+    private async Task Confirm()
+    {
+        if (!AllPlaced)
+            return;
+
+        await OnConfirmed.InvokeAsync(_placements.ToList());
+    }
+}

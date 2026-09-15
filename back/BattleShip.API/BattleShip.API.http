@@ -1,10 +1,71 @@
 @api = https://localhost:7184
 
-### Créer une partie
+### Consulter la composition de la flotte standard
+GET {{api}}/fleet
+
+### Créer une partie avec une flotte aléatoire
 POST {{api}}/games
+Content-Type: application/json
+
+{ "playerFleet": null }
+
+### Créer une partie avec une difficulté choisie (Easy, Hard ou Expert)
+POST {{api}}/games
+Content-Type: application/json
+
+{ "playerFleet": null, "difficulty": "Expert" }
+
+### Créer une partie en Mode Tempête (grille 12x12, flotte élargie, mines)
+POST {{api}}/games
+Content-Type: application/json
+
+{ "playerFleet": null, "stormMode": true }
+
+### Mode Tempête avec flotte manuelle : doit renvoyer 400 (incompatible)
+POST {{api}}/games
+Content-Type: application/json
+
+{
+  "playerFleet": [{ "name": "Porte-avions", "row": 0, "col": 0, "orientation": "Horizontal" }],
+  "stormMode": true
+}
+
+### Créer une partie avec une flotte placée manuellement
+POST {{api}}/games
+Content-Type: application/json
+
+{
+  "playerFleet": [
+    { "name": "Porte-avions", "row": 0, "col": 0, "orientation": "Horizontal" },
+    { "name": "Croiseur", "row": 2, "col": 0, "orientation": "Horizontal" },
+    { "name": "Contre-torpilleur", "row": 4, "col": 0, "orientation": "Horizontal" },
+    { "name": "Sous-marin", "row": 6, "col": 0, "orientation": "Horizontal" },
+    { "name": "Torpilleur", "row": 8, "col": 0, "orientation": "Horizontal" }
+  ]
+}
+
+### Flotte manuelle invalide (chevauchement) : doit renvoyer 400
+POST {{api}}/games
+Content-Type: application/json
+
+{
+  "playerFleet": [
+    { "name": "Porte-avions", "row": 0, "col": 0, "orientation": "Horizontal" },
+    { "name": "Croiseur", "row": 0, "col": 0, "orientation": "Horizontal" },
+    { "name": "Contre-torpilleur", "row": 4, "col": 0, "orientation": "Horizontal" },
+    { "name": "Sous-marin", "row": 6, "col": 0, "orientation": "Horizontal" },
+    { "name": "Torpilleur", "row": 8, "col": 0, "orientation": "Horizontal" }
+  ]
+}
 
 ### Consulter l'état d'une partie (remplacer {{gameId}} par un GameId obtenu ci-dessus)
 GET {{api}}/games/{{gameId}}
+
+### Consulter l'historique des parties (statut, difficulté, mode Tempête, dernière activité)
+GET {{api}}/games
+
+### Consulter les statistiques globales (parties, victoires, défaites, tirs moyens)
+GET {{api}}/stats
 
 ### Jouer un tir (0-9 pour Row et Col)
 POST {{api}}/games/{{gameId}}/shots
@@ -20,3 +81,9 @@ Content-Type: application/json
 
 ### Partie inconnue : doit renvoyer 404
 GET {{api}}/games/00000000-0000-0000-0000-000000000000
+
+### Tir sur une partie déjà terminée : doit renvoyer 409
+POST {{api}}/games/{{gameId}}/shots
+Content-Type: application/json
+
+{ "row": 0, "col": 0 }

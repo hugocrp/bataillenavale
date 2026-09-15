@@ -4,7 +4,7 @@ using Grpc.Net.Client.Web;
 
 namespace BattleShip.App.Services;
 
-public sealed class GameStatsClient(string apiBaseUrl)
+public sealed class GameStatsClient(string apiBaseUrl) : IGameStatsClient
 {
     public async Task<GameStatsReply> GetStatsAsync(Guid gameId)
     {

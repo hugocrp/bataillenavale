@@ -7,7 +7,7 @@ public sealed class RandomComputerStrategy(Random random) : IComputerStrategy
         Coordinate candidate;
         do
         {
-            candidate = new Coordinate(random.Next(Board.Size), random.Next(Board.Size));
+            candidate = new Coordinate(random.Next(targetBoard.Size), random.Next(targetBoard.Size));
         } while (targetBoard.HasBeenShotAt(candidate));
 
         return candidate;

@@ -6,5 +6,7 @@ public enum CellState
     Ship,
     Hit,
     Miss,
-    Sunk
+    Sunk,
+    Mine,
+    MineHit
 }

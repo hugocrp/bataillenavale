@@ -4,7 +4,7 @@
 @using BattleShip.Models
 @using BattleShip.Models.Contracts
 @inject GameApiClient Api
-@inject GameStatsClient Stats
+@inject IGameStatsClient Stats
 
 <PageTitle>Bataille Navale</PageTitle>
 
@@ -19,8 +19,98 @@
 @if (_state is null)
 {
     <div class="empty-state">
-        <p>Aucune partie en cours.</p>
-        <button class="btn btn-primary" @onclick="StartGameAsync" disabled="@_busy">Nouvelle partie</button>
+        <label class="toggle-row">
+            <input type="checkbox" @bind="_manualPlacement" disabled="@_stormMode" />
+            Placer mes navires moi-même
+        </label>
+
+        <label class="toggle-row">
+            <input type="checkbox" @bind="_stormMode" disabled="@_manualPlacement" />
+            Mode Tempête (règles maison)
+        </label>
+
+        @if (_stormMode)
+        {
+            <div class="storm-rules">
+                <h2>Règles du Mode Tempête</h2>
+                <ul>
+                    <li>Grille agrandie : 12 × 12 cases (au lieu de 10 × 10)</li>
+                    <li>Flotte élargie : 8 navires (au lieu de 5)</li>
+                    <li>3 mines cachées sur chaque grille — les toucher ne coule aucun navire, mais fait sauter votre prochain tour</li>
+                </ul>
+            </div>
+        }
+
+        <div class="difficulty-toggle">
+            <span class="difficulty-label">Difficulté de l'ordinateur :</span>
+            <button type="button" class="btn btn-sm @(_difficulty == nameof(ComputerDifficulty.Easy) ? "btn-secondary" : "btn-outline-secondary")"
+                    @onclick='() => _difficulty = nameof(ComputerDifficulty.Easy)'>
+                Facile
+            </button>
+            <button type="button" class="btn btn-sm @(_difficulty == nameof(ComputerDifficulty.Hard) ? "btn-secondary" : "btn-outline-secondary")"
+                    @onclick='() => _difficulty = nameof(ComputerDifficulty.Hard)'>
+                Difficile
+            </button>
+            <button type="button" class="btn btn-sm @(_difficulty == nameof(ComputerDifficulty.Expert) ? "btn-secondary" : "btn-outline-secondary")"
+                    @onclick='() => _difficulty = nameof(ComputerDifficulty.Expert)'>
+                Experte
+            </button>
+        </div>
+
+        @if (_manualPlacement)
+        {
+            @if (_fleet is null)
+            {
+                <p>Chargement de la flotte…</p>
+            }
+            else
+            {
+                <FleetSetup Fleet="_fleet" OnConfirmed="StartManualGameAsync" />
+            }
+        }
+        else
+        {
+            <p>Vos navires seront placés aléatoirement.</p>
+            <button class="btn btn-primary" @onclick="StartRandomGameAsync" disabled="@_busy">Nouvelle partie</button>
+        }
+
+        @if (_error is not null)
+        {
+            <p class="error">@_error</p>
+        }
+
+        @if (_globalStats is { TotalGames: > 0 })
+        {
+            <div class="global-stats">
+                <h2>Statistiques globales</h2>
+                <p>
+                    @_globalStats.TotalGames partie(s) · @_globalStats.PlayerWins victoire(s) · @_globalStats.ComputerWins défaite(s)
+                    @if (_globalStats.AverageShotsToFinish is { } avg)
+                    {
+                        <text> · @avg.ToString("0.0") tirs en moyenne pour terminer une partie</text>
+                    }
+                </p>
+            </div>
+        }
+
+        @if (_history is { Count: > 0 })
+        {
+            <div class="history">
+                <h2>Parties précédentes</h2>
+                <ul class="history-list">
+                    @foreach (var entry in _history)
+                    {
+                        <li>
+                            <span class="history-time">@entry.LastActivityUtc.ToLocalTime().ToString("dd/MM HH:mm")</span>
+                            <span class="history-difficulty">
+                                @DifficultyLabel(entry.Difficulty)@(entry.StormMode ? " · Tempête" : "")
+                            </span>
+                            <span class="status-badge @HistoryPhaseCssClass(entry.Phase)">@PhaseLabel(entry.Phase)</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
     </div>
 }
 else
@@ -28,21 +118,32 @@ else
     <div class="boards">
         <section class="board-card">
             <h2>Votre flotte</h2>
-            <BoardGrid Cells="_state.PlayerBoard" Interactive="false" />
+            <BoardGrid Cells="_state.PlayerBoard" GridSize="_state.BoardSize" Interactive="false" />
         </section>
         <section class="board-card">
             <h2>Repérage de l'adversaire</h2>
-            <BoardGrid Cells="_state.ComputerBoard" Interactive="@CanPlay" OnCellClick="ShootAsync" />
+            <BoardGrid Cells="_state.ComputerBoard" GridSize="_state.BoardSize" Interactive="@CanPlay" OnCellClick="ShootAsync" />
         </section>
     </div>
 
     @if (_lastTurn is not null)
     {
         <p class="last-turn">
-            Votre tir en (@_lastTurn.PlayerShot.Row, @_lastTurn.PlayerShot.Col) : @Outcome(_lastTurn.PlayerShot.Outcome)
+            @if (_lastTurn.PlayerShot.Outcome == nameof(ShotOutcome.TurnSkipped))
+            {
+                <text>Vous avez sauté votre tour (mine déclenchée au tour précédent).</text>
+            }
+            else
+            {
+                <text>Votre tir en (@_lastTurn.PlayerShot.Row, @_lastTurn.PlayerShot.Col) : @Outcome(_lastTurn.PlayerShot.Outcome)</text>
+            }
             @if (_lastTurn.ComputerShot is { } computerShot)
             {
                 <text> — Riposte adverse en (@computerShot.Row, @computerShot.Col) : @Outcome(computerShot.Outcome)</text>
+            }
+            @if (ComputerSkippedMessage is not null)
+            {
+                <text> — @ComputerSkippedMessage</text>
             }
         </p>
     }
@@ -53,7 +154,7 @@ else
     }
 
     <div class="actions">
-        <button class="btn btn-secondary" @onclick="StartGameAsync" disabled="@_busy">Nouvelle partie</button>
+        <button class="btn btn-secondary" @onclick="ReturnToSetup" disabled="@_busy">Nouvelle partie</button>
         <button class="btn btn-outline-secondary" @onclick="LoadStatsAsync" disabled="@_busy">Statistiques (gRPC)</button>
     </div>
 
@@ -70,10 +171,62 @@ else
     private GameStateDto? _state;
     private TurnResultDto? _lastTurn;
     private GameStatsReply? _stats;
+    private IReadOnlyList<FleetSlotDto>? _fleet;
+    private IReadOnlyList<GameSummaryDto>? _history;
+    private GlobalStatsDto? _globalStats;
     private string? _error;
     private bool _busy;
+    private bool _manualPlacement;
+    private bool _stormMode;
+    private string _difficulty = nameof(ComputerDifficulty.Hard);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _fleet = await Api.GetFleetAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible de charger la composition de la flotte : {ex.Message}";
+        }
+
+        await LoadHistoryAsync();
+        await LoadGlobalStatsAsync();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        try
+        {
+            _history = await Api.ListGamesAsync();
+        }
+        catch
+        {
+            _history = null;
+        }
+    }
+
+    private async Task LoadGlobalStatsAsync()
+    {
+        try
+        {
+            _globalStats = await Api.GetGlobalStatsAsync();
+        }
+        catch
+        {
+            _globalStats = null;
+        }
+    }
 
     private bool CanPlay => _state?.Phase == nameof(GamePhase.InProgress) && !_busy;
+
+    private string? ComputerSkippedMessage =>
+        _lastTurn is { ComputerShot: null }
+        && _lastTurn.PlayerShot.Outcome is not (nameof(ShotOutcome.AlreadyPlayed) or nameof(ShotOutcome.TurnSkipped))
+        && _state?.Phase == nameof(GamePhase.InProgress)
+            ? "l'ordinateur a sauté son tour (mine déclenchée au tour précédent) !"
+            : null;
 
     private string StatusCssClass => _state?.Phase switch
     {
@@ -89,7 +242,44 @@ else
         _ => "Partie en cours — cliquez sur la grille adverse pour tirer."
     };
 
-    private async Task StartGameAsync()
+    private static string DifficultyLabel(string difficulty) => difficulty switch
+    {
+        nameof(ComputerDifficulty.Easy) => "Facile",
+        nameof(ComputerDifficulty.Hard) => "Difficile",
+        nameof(ComputerDifficulty.Expert) => "Experte",
+        _ => difficulty
+    };
+
+    private static string PhaseLabel(string phase) => phase switch
+    {
+        nameof(GamePhase.PlayerWon) => "Victoire",
+        nameof(GamePhase.ComputerWon) => "Défaite",
+        nameof(GamePhase.InProgress) => "En cours",
+        _ => phase
+    };
+
+    private static string HistoryPhaseCssClass(string phase) => phase switch
+    {
+        nameof(GamePhase.PlayerWon) => "status-won",
+        nameof(GamePhase.ComputerWon) => "status-lost",
+        _ => "status-progress"
+    };
+
+    private async Task ReturnToSetup()
+    {
+        _state = null;
+        _lastTurn = null;
+        _stats = null;
+        _error = null;
+        await LoadHistoryAsync();
+        await LoadGlobalStatsAsync();
+    }
+
+    private Task StartRandomGameAsync() => CreateGameAsync(null, _stormMode);
+
+    private Task StartManualGameAsync(IReadOnlyList<ShipPlacementDto> placements) => CreateGameAsync(placements, stormMode: false);
+
+    private async Task CreateGameAsync(IReadOnlyList<ShipPlacementDto>? playerFleet, bool stormMode)
     {
         _busy = true;
         _error = null;
@@ -97,7 +287,7 @@ else
         _stats = null;
         try
         {
-            _state = await Api.CreateGameAsync();
+            _state = await Api.CreateGameAsync(playerFleet, _difficulty, stormMode);
         }
         catch (Exception ex)
         {
@@ -155,6 +345,8 @@ else
         nameof(ShotOutcome.Sunk) => "coulé",
         nameof(ShotOutcome.Miss) => "manqué",
         nameof(ShotOutcome.AlreadyPlayed) => "case déjà jouée",
+        nameof(ShotOutcome.MineHit) => "mine déclenchée 💥",
+        nameof(ShotOutcome.TurnSkipped) => "tour sauté (mine)",
         _ => outcome
     };
 }

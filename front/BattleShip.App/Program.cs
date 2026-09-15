@@ -11,6 +11,6 @@ var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? builder.HostEnvironment.
 
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(apiBaseUrl) });
 builder.Services.AddScoped<GameApiClient>();
-builder.Services.AddScoped(_ => new GameStatsClient(apiBaseUrl));
+builder.Services.AddScoped<IGameStatsClient>(_ => new GameStatsClient(apiBaseUrl));
 
 await builder.Build().RunAsync();

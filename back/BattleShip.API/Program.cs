@@ -4,12 +4,20 @@ using BattleShip.API.Validation;
 using BattleShip.Models;
 using BattleShip.Models.Contracts;
 using FluentValidation;
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.AddProblemDetails(options =>
+    options.CustomizeProblemDetails = context => context.ProblemDetails.Extensions.Remove("exception"));
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<GameStore>();
+builder.Services.AddHostedService<GameCleanupService>();
 builder.Services.AddScoped<IValidator<ShotRequest>, ShotRequestValidator>();
+builder.Services.AddScoped<IValidator<CreateGameRequest>, CreateGameRequestValidator>();
+builder.Services.AddScoped<IValidator<GameStatsRequest>, GameStatsRequestValidator>();
 builder.Services.AddGrpc();
 
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
@@ -37,18 +45,69 @@ app.UseGrpcWeb();
 
 app.MapGrpcService<GameStatsGrpcService>().EnableGrpcWeb().RequireCors("Front");
 
-app.MapPost("/games", (GameStore store) =>
+app.MapGet("/fleet", Ok<FleetSlotDto[]> () =>
+    TypedResults.Ok(FleetFactory.StandardFleet.Select(s => new FleetSlotDto(s.Name, s.Size)).ToArray()));
+
+app.MapPost("/games", async Task<Results<Created<GameStateDto>, ValidationProblem>> (
+    CreateGameRequest request,
+    GameStore store,
+    IValidator<CreateGameRequest> validator) =>
 {
-    var game = store.Create();
-    return Results.Created($"/games/{game.Id}", GameStateMapper.ToDto(game));
+    var validation = await validator.ValidateAsync(request);
+    if (!validation.IsValid)
+        return TypedResults.ValidationProblem(validation.ToDictionary());
+
+    var difficulty = request.Difficulty is null
+        ? ComputerDifficulty.Hard
+        : Enum.Parse<ComputerDifficulty>(request.Difficulty);
+
+    if (request.StormMode)
+    {
+        var stormGame = store.CreateStorm(difficulty);
+        return TypedResults.Created($"/games/{stormGame.Id}", GameStateMapper.ToDto(stormGame));
+    }
+
+    if (request.PlayerFleet is null)
+    {
+        var randomGame = store.CreateRandom(difficulty);
+        return TypedResults.Created($"/games/{randomGame.Id}", GameStateMapper.ToDto(randomGame));
+    }
+
+    Board playerBoard;
+    try
+    {
+        var placements = request.PlayerFleet
+            .Select(s => new ShipPlacement(s.Name, new Coordinate(s.Row, s.Col), Enum.Parse<Orientation>(s.Orientation)))
+            .ToList();
+        playerBoard = FleetFactory.CreateManualBoard(placements);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["playerFleet"] = [ex.Message] });
+    }
+
+    var game = store.CreateWithPlayerFleet(playerBoard, difficulty);
+    return TypedResults.Created($"/games/{game.Id}", GameStateMapper.ToDto(game));
 });
 
-app.MapGet("/games/{id:guid}", IResult (Guid id, GameStore store) =>
-    store.TryGet(id, out var game)
-        ? Results.Ok(GameStateMapper.ToDto(game))
-        : Results.NotFound());
+app.MapGet("/games", Ok<GameSummaryDto[]> (GameStore store) =>
+    TypedResults.Ok(store.ListAll()
+        .Select(s => new GameSummaryDto(s.Id, s.Phase.ToString(), s.Difficulty.ToString(), s.StormMode, s.LastActivityUtc))
+        .ToArray()));
 
-app.MapPost("/games/{id:guid}/shots", async Task<IResult> (
+app.MapGet("/stats", Ok<GlobalStatsDto> (GameStore store) =>
+{
+    var stats = store.GetGlobalStats();
+    return TypedResults.Ok(new GlobalStatsDto(
+        stats.TotalGames, stats.PlayerWins, stats.ComputerWins, stats.InProgressCount, stats.AverageShotsToFinish));
+});
+
+app.MapGet("/games/{id:guid}", Results<Ok<GameStateDto>, NotFound> (Guid id, GameStore store) =>
+    store.TryGet(id, out var game)
+        ? TypedResults.Ok(GameStateMapper.ToDto(game))
+        : TypedResults.NotFound());
+
+app.MapPost("/games/{id:guid}/shots", async Task<Results<Ok<TurnResultDto>, ValidationProblem, NotFound, ProblemHttpResult>> (
     Guid id,
     ShotRequest request,
     GameStore store,
@@ -56,17 +115,27 @@ app.MapPost("/games/{id:guid}/shots", async Task<IResult> (
 {
     var validation = await validator.ValidateAsync(request);
     if (!validation.IsValid)
-        return Results.ValidationProblem(validation.ToDictionary());
+        return TypedResults.ValidationProblem(validation.ToDictionary());
 
     if (!store.TryGet(id, out var game))
-        return Results.NotFound();
+        return TypedResults.NotFound();
 
     if (game.Phase != GamePhase.InProgress)
-        return Results.Conflict("La partie est terminée.");
+        return TypedResults.Problem("La partie est terminée.", statusCode: StatusCodes.Status409Conflict);
 
-    var result = game.Shoot(new Coordinate(request.Row, request.Col));
-    return Results.Ok(GameStateMapper.ToDto(result, game));
-});
+    try
+    {
+        var result = game.Shoot(new Coordinate(request.Row, request.Col));
+        return TypedResults.Ok(GameStateMapper.ToDto(result, game));
+    }
+    catch (ArgumentOutOfRangeException)
+    {
+        return TypedResults.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["row"] = [$"La case visée est hors de la grille de cette partie ({game.PlayerBoard.Size}x{game.PlayerBoard.Size})."]
+        });
+    }
+}).Produces<ProblemDetails>(StatusCodes.Status409Conflict, "application/problem+json");
 
 app.Run();
 

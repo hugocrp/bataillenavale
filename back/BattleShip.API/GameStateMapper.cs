@@ -9,6 +9,7 @@ public static class GameStateMapper
         new(
             game.Id,
             game.Phase.ToString(),
+            game.PlayerBoard.Size,
             ToCells(game.PlayerBoard, revealShips: true),
             ToCells(game.ComputerBoard, revealShips: false));
 
@@ -23,10 +24,10 @@ public static class GameStateMapper
 
     private static IReadOnlyList<CellDto> ToCells(Board board, bool revealShips)
     {
-        var cells = new List<CellDto>(Board.Size * Board.Size);
-        for (var row = 0; row < Board.Size; row++)
+        var cells = new List<CellDto>(board.Size * board.Size);
+        for (var row = 0; row < board.Size; row++)
         {
-            for (var col = 0; col < Board.Size; col++)
+            for (var col = 0; col < board.Size; col++)
             {
                 var coordinate = new Coordinate(row, col);
                 cells.Add(new CellDto(row, col, board.GetState(coordinate, revealShips).ToString()));

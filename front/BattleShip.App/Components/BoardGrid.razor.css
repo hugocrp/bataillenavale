@@ -1,45 +1,83 @@
 .board-grid {
     display: inline-flex;
     flex-direction: column;
-    gap: 2px;
-    border: 1px solid #999;
-    padding: 2px;
-    background: #cfe8ff;
+    gap: 3px;
 }
 
 .board-row {
     display: flex;
-    gap: 2px;
+    gap: 3px;
+}
+
+.board-label {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--muted);
 }
 
 .board-cell {
     width: 2rem;
     height: 2rem;
     padding: 0;
-    border: 1px solid #7fa8c9;
-    background: #eaf4ff;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--ocean-100);
     font-size: 1rem;
     line-height: 1;
     cursor: pointer;
+    transition: background-color 0.12s ease, transform 0.08s ease;
+}
+
+.board-cell:not(:disabled):hover {
+    background: var(--ocean-200);
+    transform: scale(1.06);
 }
 
 .board-cell:disabled {
     cursor: default;
 }
 
+.board-cell:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .board-cell.ship {
-    background: #7f8c8d;
+    background: #5b7083;
+    border-color: #45566a;
 }
 
 .board-cell.hit {
-    background: #f39c12;
+    background: var(--accent);
+    border-color: var(--accent-dark);
+    color: #fff;
 }
 
 .board-cell.sunk {
-    background: #c0392b;
+    background: var(--danger);
+    border-color: #7d1a14;
     color: #fff;
 }
 
 .board-cell.miss {
-    background: #bdc3c7;
+    background: #dbe4ee;
+    color: var(--muted);
+}
+
+.board-cell.mine {
+    background: #fff3ec;
+    border-color: var(--accent-dark);
+    color: var(--accent-dark);
+}
+
+.board-cell.minehit {
+    background: var(--navy-900);
+    border-color: var(--danger);
+    color: #fff;
 }
