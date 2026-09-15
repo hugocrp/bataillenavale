@@ -1,3 +1,43 @@
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.app-header h1 {
+    margin: 0;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.status-progress {
+    background: #e3f0fc;
+    color: #1b6ec2;
+}
+
+.status-won {
+    background: #e2f6e9;
+    color: #1e7e34;
+}
+
+.status-lost {
+    background: #fbe4e4;
+    color: #b32121;
+}
+
+.empty-state {
+    padding: 2rem 0;
+}
+
 .boards {
     display: flex;
     flex-wrap: wrap;
@@ -5,8 +45,16 @@
     margin: 1rem 0;
 }
 
-.status {
-    font-weight: bold;
+.board-card h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+}
+
+.last-turn {
+    background: #f7f7f7;
+    border-radius: 0.5rem;
+    padding: 0.6rem 1rem;
+    margin-top: 1rem;
 }
 
 .error {
@@ -17,4 +65,9 @@
     display: flex;
     gap: 0.5rem;
     margin-top: 1rem;
+}
+
+.stats {
+    margin-top: 1rem;
+    color: #495057;
 }

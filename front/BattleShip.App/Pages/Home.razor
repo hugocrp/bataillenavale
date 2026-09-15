@@ -8,23 +8,29 @@
 
 <PageTitle>Bataille Navale</PageTitle>
 
-<h1>Bataille Navale</h1>
+<header class="app-header">
+    <h1>⚓ Bataille Navale</h1>
+    @if (_state is not null)
+    {
+        <span class="status-badge @StatusCssClass">@StatusMessage</span>
+    }
+</header>
 
 @if (_state is null)
 {
-    <p>Aucune partie en cours.</p>
-    <button class="btn btn-primary" @onclick="StartGameAsync" disabled="@_busy">Nouvelle partie</button>
+    <div class="empty-state">
+        <p>Aucune partie en cours.</p>
+        <button class="btn btn-primary" @onclick="StartGameAsync" disabled="@_busy">Nouvelle partie</button>
+    </div>
 }
 else
 {
-    <p class="status">@StatusMessage</p>
-
     <div class="boards">
-        <section>
+        <section class="board-card">
             <h2>Votre flotte</h2>
             <BoardGrid Cells="_state.PlayerBoard" Interactive="false" />
         </section>
-        <section>
+        <section class="board-card">
             <h2>Repérage de l'adversaire</h2>
             <BoardGrid Cells="_state.ComputerBoard" Interactive="@CanPlay" OnCellClick="ShootAsync" />
         </section>
@@ -68,6 +74,13 @@ else
     private bool _busy;
 
     private bool CanPlay => _state?.Phase == nameof(GamePhase.InProgress) && !_busy;
+
+    private string StatusCssClass => _state?.Phase switch
+    {
+        nameof(GamePhase.PlayerWon) => "status-won",
+        nameof(GamePhase.ComputerWon) => "status-lost",
+        _ => "status-progress"
+    };
 
     private string StatusMessage => _state?.Phase switch
     {
