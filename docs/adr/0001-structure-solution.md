@@ -24,5 +24,4 @@ Structure en deux sous-dossiers : `back/` (BattleShip.API, BattleShip.Models, Ba
 `dotnet build` et `dotnet test` exécutés depuis la racine compilent l'ensemble de la solution et exécutent les tests sans erreur, ce qui confirme que les références inter-dossiers fonctionnent correctement. À réexaminer si un projet supplémentaire partagé entre back et front est introduit.
 
 ## Références
-- Support de cours, diapo 6 (contraintes du socle) et diapo 28 (création de la solution).
-- [PROMPTS.md](../../PROMPTS.md) — entrée du 2026-09-15 sur l'initialisation de la solution.
+- 2026-09-15 sur l'initialisation de la solution dans prompt.md.
