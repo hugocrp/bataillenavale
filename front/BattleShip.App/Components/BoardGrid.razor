@@ -1,0 +1,51 @@
+@using BattleShip.Models.Contracts
+
+<div class="board-grid">
+    @for (var row = 0; row < GridSize; row++)
+    {
+        var currentRow = row;
+        <div class="board-row">
+            @for (var col = 0; col < GridSize; col++)
+            {
+                var currentCol = col;
+                var cell = GetCell(currentRow, currentCol);
+                var alreadyPlayed = cell.State is "Hit" or "Miss" or "Sunk";
+                <button type="button"
+                        class="board-cell @cell.State.ToLowerInvariant()"
+                        disabled="@(!Interactive || alreadyPlayed)"
+                        @onclick="() => OnCellClicked(currentRow, currentCol)">
+                    @CellLabel(cell.State)
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private const int GridSize = 10;
+    private Dictionary<(int Row, int Col), CellDto>? _lookup;
+
+    [Parameter, EditorRequired] public IReadOnlyList<CellDto> Cells { get; set; } = [];
+    [Parameter] public bool Interactive { get; set; }
+    [Parameter] public EventCallback<(int Row, int Col)> OnCellClick { get; set; }
+
+    protected override void OnParametersSet() => _lookup = null;
+
+    private CellDto GetCell(int row, int col)
+    {
+        _lookup ??= Cells.ToDictionary(c => (c.Row, c.Col));
+        return _lookup.TryGetValue((row, col), out var cell) ? cell : new CellDto(row, col, "Unknown");
+    }
+
+    private Task OnCellClicked(int row, int col) =>
+        Interactive ? OnCellClick.InvokeAsync((row, col)) : Task.CompletedTask;
+
+    private static string CellLabel(string state) => state switch
+    {
+        "Hit" => "✹",
+        "Sunk" => "☠",
+        "Miss" => "•",
+        "Ship" => "▦",
+        _ => ""
+    };
+}

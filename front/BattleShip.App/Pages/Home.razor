@@ -1,7 +1,147 @@
-﻿@page "/"
+@page "/"
+@using BattleShip.API.Grpc
+@using BattleShip.App.Services
+@using BattleShip.Models
+@using BattleShip.Models.Contracts
+@inject GameApiClient Api
+@inject GameStatsClient Stats
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Bataille Navale</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Bataille Navale</h1>
 
-Welcome to your new app.
+@if (_state is null)
+{
+    <p>Aucune partie en cours.</p>
+    <button class="btn btn-primary" @onclick="StartGameAsync" disabled="@_busy">Nouvelle partie</button>
+}
+else
+{
+    <p class="status">@StatusMessage</p>
+
+    <div class="boards">
+        <section>
+            <h2>Votre flotte</h2>
+            <BoardGrid Cells="_state.PlayerBoard" Interactive="false" />
+        </section>
+        <section>
+            <h2>Repérage de l'adversaire</h2>
+            <BoardGrid Cells="_state.ComputerBoard" Interactive="@CanPlay" OnCellClick="ShootAsync" />
+        </section>
+    </div>
+
+    @if (_lastTurn is not null)
+    {
+        <p class="last-turn">
+            Votre tir en (@_lastTurn.PlayerShot.Row, @_lastTurn.PlayerShot.Col) : @Outcome(_lastTurn.PlayerShot.Outcome)
+            @if (_lastTurn.ComputerShot is { } computerShot)
+            {
+                <text> — Riposte adverse en (@computerShot.Row, @computerShot.Col) : @Outcome(computerShot.Outcome)</text>
+            }
+        </p>
+    }
+
+    @if (_error is not null)
+    {
+        <p class="error">@_error</p>
+    }
+
+    <div class="actions">
+        <button class="btn btn-secondary" @onclick="StartGameAsync" disabled="@_busy">Nouvelle partie</button>
+        <button class="btn btn-outline-secondary" @onclick="LoadStatsAsync" disabled="@_busy">Statistiques (gRPC)</button>
+    </div>
+
+    @if (_stats is not null)
+    {
+        <p class="stats">
+            Navires restants — vous : @_stats.PlayerShipsRemaining, adversaire : @_stats.ComputerShipsRemaining.
+            Tirs joués : @_stats.ShotsFiredByPlayer.
+        </p>
+    }
+}
+
+@code {
+    private GameStateDto? _state;
+    private TurnResultDto? _lastTurn;
+    private GameStatsReply? _stats;
+    private string? _error;
+    private bool _busy;
+
+    private bool CanPlay => _state?.Phase == nameof(GamePhase.InProgress) && !_busy;
+
+    private string StatusMessage => _state?.Phase switch
+    {
+        nameof(GamePhase.PlayerWon) => "Victoire ! Tous les navires adverses sont coulés.",
+        nameof(GamePhase.ComputerWon) => "Défaite : votre flotte est coulée.",
+        _ => "Partie en cours — cliquez sur la grille adverse pour tirer."
+    };
+
+    private async Task StartGameAsync()
+    {
+        _busy = true;
+        _error = null;
+        _lastTurn = null;
+        _stats = null;
+        try
+        {
+            _state = await Api.CreateGameAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Impossible de créer une partie : {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ShootAsync((int Row, int Col) target)
+    {
+        if (_state is null || !CanPlay)
+            return;
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            var result = await Api.ShootAsync(_state.GameId, target.Row, target.Col);
+            _lastTurn = result;
+            _state = result.State;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Le tir n'a pas pu être joué : {ex.Message}";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task LoadStatsAsync()
+    {
+        if (_state is null)
+            return;
+
+        _error = null;
+        try
+        {
+            _stats = await Stats.GetStatsAsync(_state.GameId);
+        }
+        catch (Exception ex)
+        {
+            _stats = null;
+            _error = $"Statistiques indisponibles : {ex.Message}";
+        }
+    }
+
+    private static string Outcome(string outcome) => outcome switch
+    {
+        nameof(ShotOutcome.Hit) => "touché",
+        nameof(ShotOutcome.Sunk) => "coulé",
+        nameof(ShotOutcome.Miss) => "manqué",
+        nameof(ShotOutcome.AlreadyPlayed) => "case déjà jouée",
+        _ => outcome
+    };
+}

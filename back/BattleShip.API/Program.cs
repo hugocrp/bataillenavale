@@ -1,41 +1,73 @@
+using BattleShip.API;
+using BattleShip.API.Grpc;
+using BattleShip.API.Validation;
+using BattleShip.Models;
+using BattleShip.Models.Contracts;
+using FluentValidation;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddSingleton<GameStore>();
+builder.Services.AddScoped<IValidator<ShotRequest>, ShotRequestValidator>();
+builder.Services.AddGrpc();
+
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? ["https://localhost:7068", "http://localhost:5109"];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("Front", policy => policy
+        .WithOrigins(allowedOrigins)
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .WithExposedHeaders("Grpc-Status", "Grpc-Message", "Grpc-Encoding", "Grpc-Accept-Encoding"));
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
 app.UseHttpsRedirection();
+app.UseCors("Front");
+app.UseGrpcWeb();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.MapGrpcService<GameStatsGrpcService>().EnableGrpcWeb().RequireCors("Front");
 
-app.MapGet("/weatherforecast", () =>
+app.MapPost("/games", (GameStore store) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    var game = store.Create();
+    return Results.Created($"/games/{game.Id}", GameStateMapper.ToDto(game));
+});
+
+app.MapGet("/games/{id:guid}", IResult (Guid id, GameStore store) =>
+    store.TryGet(id, out var game)
+        ? Results.Ok(GameStateMapper.ToDto(game))
+        : Results.NotFound());
+
+app.MapPost("/games/{id:guid}/shots", async Task<IResult> (
+    Guid id,
+    ShotRequest request,
+    GameStore store,
+    IValidator<ShotRequest> validator) =>
+{
+    var validation = await validator.ValidateAsync(request);
+    if (!validation.IsValid)
+        return Results.ValidationProblem(validation.ToDictionary());
+
+    if (!store.TryGet(id, out var game))
+        return Results.NotFound();
+
+    if (game.Phase != GamePhase.InProgress)
+        return Results.Conflict("La partie est terminée.");
+
+    var result = game.Shoot(new Coordinate(request.Row, request.Col));
+    return Results.Ok(GameStateMapper.ToDto(result, game));
+});
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+public partial class Program;

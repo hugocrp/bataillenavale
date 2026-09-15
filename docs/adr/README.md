@@ -32,3 +32,5 @@ Liens utiles : documentation, issue, expérience ou commit.
 ## Index
 
 - [0001 — Structure de la solution et disposition back/front](0001-structure-solution.md)
+- [0002 — Règles du jeu, taille de grille et composition de la flotte](0002-regles-grille-flotte.md)
+- [0003 — Périmètre de l'échange gRPC](0003-perimetre-grpc.md)

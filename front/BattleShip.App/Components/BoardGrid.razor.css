@@ -1,0 +1,45 @@
+.board-grid {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 2px;
+    border: 1px solid #999;
+    padding: 2px;
+    background: #cfe8ff;
+}
+
+.board-row {
+    display: flex;
+    gap: 2px;
+}
+
+.board-cell {
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 1px solid #7fa8c9;
+    background: #eaf4ff;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.board-cell:disabled {
+    cursor: default;
+}
+
+.board-cell.ship {
+    background: #7f8c8d;
+}
+
+.board-cell.hit {
+    background: #f39c12;
+}
+
+.board-cell.sunk {
+    background: #c0392b;
+    color: #fff;
+}
+
+.board-cell.miss {
+    background: #bdc3c7;
+}
