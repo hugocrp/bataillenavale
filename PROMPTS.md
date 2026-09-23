@@ -2,24 +2,6 @@
 
 Une entrée par prompt qui a compté — pas tous les échanges, seulement les décisifs.
 
-Gabarit d'entrée :
-
-```
-## Date et sujet
-
-- Outil / modèle si connu :
-- Contexte :
-- Prompt réellement utilisé :
-- Réponse et hypothèses résumées :
-- Décision et justification :
-- Scénario ou commande de vérification :
-- Résultat attendu, puis résultat observé :
-- Erreur que ce contrôle pourrait détecter :
-- Preuves reproductibles et limites :
-```
-
----
-
 ## 15/09/2026, Initialisation de la solution et de la structure du dépôt
 
 - **Outil / modèle si connu** : Claude Code (Claude Sonnet 5), CLI Claude Code.
@@ -28,9 +10,9 @@ Gabarit d'entrée :
 - **Réponse et hypothèses résumées** : proposition de créer une solution `BattleShip.slnx` avec quatre projets — `BattleShip.API`, `BattleShip.Models`, `BattleShip.Tests` dans `back/`, et `BattleShip.App` (Blazor WebAssembly) dans `front/` — avec les références de projet (`API` → `Models`, `App` → `Models`, `Tests` → `API`), un `global.json` pinnant le SDK .NET 10.0.401, et un `.gitignore` généré par `dotnet new gitignore`.
 - **Décision et justification** : acceptée telle quelle. La séparation back/front demandée est respectée, et `BattleShip.Models` reste indépendant de tout autre projet, conformément à la diapo 28 du support (« le moteur reste indépendant de HTTP, JSON et gRPC »).
 - **Scénario ou commande de vérification** : `dotnet build` puis `dotnet test` depuis la racine du dépôt.
-- **Résultat attendu, puis résultat observé** : attendu — compilation sans erreur des quatre projets et exécution du test par défaut du gabarit xUnit. Observé — `dotnet build` : 0 erreur, 0 avertissement ; `dotnet test` : 1/1 test réussi.
-- **Erreur que ce contrôle pourrait détecter** : une référence de projet manquante ou incorrecte entre dossiers (`back/`/`front/`), un projet absent de la solution, ou une incompatibilité de version de SDK avec `global.json`.
-- **Preuves reproductibles et limites** : commande reproductible (`dotnet build && dotnet test` depuis la racine). Lien vers le commit à ajouter après le commit initial. Limite : ce contrôle vérifie uniquement que la solution compile et que le harnais de test est fonctionnel — aucune règle métier n'existe encore à ce stade.
+- **Résultat attendu, puis résultat observé** : compilation sans erreur des quatre projets avec des parties du projet surement à corriger et étoffé
+- **Erreur que ce contrôle pourrait détecter** : une référence de projet manquante ou incorrecte entre dossiers (`back/`/`front/`), un projet absent de la solution, ou une incompatibilité de version
+- **Preuves reproductibles et limites** : commande reproductible (`dotnet build && dotnet test` depuis la racine). Par contre cela vérifie uniquement que la solution compile et que les tests sont fonctionnelles , aucune règle métier n'existe encore à ce stade.
 
 ---
 
@@ -53,20 +35,19 @@ Gabarit d'entrée :
 - **Outil / modèle si connu** : Claude Code (Claude Sonnet 5), CLI Claude Code.
 - **Contexte** : après une première implémentation du front avec tout le CSS du jeu dans `wwwroot/css/app.css`, le binôme souhaite que l'ensemble du jeu reste porté par Blazor et que le CSS soit scopé au composant (fichiers `.razor.css`) quand il ne concerne que ce composant, `app.css` étant réservé au CSS réellement global.
 - **Prompt réellement utilisé** : « Le css doit être scopé dans blazor le plus possible quand il fait parti du composant (.razor.css) sinon quand c'est global on laisse dans app.css. »
-- **Réponse et hypothèses résumées** : déplacement des règles propres à la grille de jeu (`.board-grid`, `.board-row`, `.board-cell` et ses états) vers `front/BattleShip.App/Components/BoardGrid.razor.css`, et des règles propres à la page de jeu (`.boards`, `.status`, `.error`, `.actions`) vers `front/BattleShip.App/Pages/Home.razor.css`. `app.css` ne conserve que le CSS du gabarit Blazor par défaut (police de base, focus, `#blazor-error-ui`, `.loading-progress`, etc.), réellement partagé par toute l'application. Précision apportée sur `wwwroot/index.html` : ce fichier est la page hôte minimale exigée par Blazor WebAssembly standalone (elle charge le runtime WASM et le point de montage `#app|`) — il ne contient aucune logique ni structure du jeu, qui reste entièrement écrite en composants Razor/C#.
-- **Décision et justification** : acceptée. Le découpage par composant correspond à l'isolation CSS native de Blazor (chaque règle est automatiquement suffixée d'un attribut `b-xxxxxxxx` généré au build, qui ne s'applique qu'aux éléments rendus par ce composant) et réduit le risque de collision de classes CSS entre composants à mesure que le jeu grossira.
-- **Scénario ou commande de vérification** : `dotnet build` sur `front/BattleShip.App`, puis inspection du bundle CSS généré (`obj/Debug/net10.0/scopedcss/projectbundle/BattleShip.App.bundle.scp.css`) pour confirmer la présence des règles scopées ; `dotnet build`/`dotnet test` sur l'ensemble de la solution.
-- **Résultat attendu, puis résultat observé** : attendu — compilation sans erreur et présence, dans le bundle scopé, des règles `.board-grid`/`.board-row`/`.board-cell` (issues de `BoardGrid.razor.css`) et `.boards`/`.status`/`.error`/`.actions` (issues de `Home.razor.css`), chacune suffixée d'un attribut de scope. Observé — `dotnet build` : 0 erreur ; le bundle généré contient bien `.board-grid[b-gdhcazz1ve]`, `.board-cell.hit[b-gdhcazz1ve]`, etc., confirmant l'isolation CSS par composant ; `dotnet test` : 20/20 tests toujours au vert (changement purement CSS, sans impact sur la logique).
+- **Décision et justification** : Le découpage par composant correspond à l'isolation CSS , chaque règle est automatiquement suffixée d'un attribut b.... généré au build, qui ne s'applique qu'aux éléments rendus par ce composant et réduit le risque de collision (ou de chevaychement avec d'autres css) de classes CSS entre composants à mesure que le jeu grossira.
+- **Résultat attendu, puis résultat observé** : attendu : rien ne change visuellement juste un meilleur découpage du css
 - **Erreur que ce contrôle pourrait détecter** : une règle CSS mal placée qui resterait globale (non scopée) alors qu'elle ne concerne qu'un composant, ou une classe orpheline dans `app.css` qui ne serait plus utilisée nulle part.
-- **Preuves reproductibles et limites** : `front/BattleShip.App/Components/BoardGrid.razor.css`, `front/BattleShip.App/Pages/Home.razor.css`, `front/BattleShip.App/wwwroot/css/app.css` (allégé). Limite : la vérification porte sur la génération du bundle CSS scopé, pas sur un rendu visuel comparé avant/après dans le navigateur — le rendu visuel n'a pas changé, seule l'organisation du CSS source a bougé.
+- **Preuves reproductibles et limites** : Limite : la vérification porte sur la génération du CSS scopé, pas sur un rendu visuel comparé avant/après dans le navigateur (mais a l'air sensiblement le même), le rendu visuel n'a pas changé, seule l'organisation du CSS source a bougé.
 
 ---
 
 ## 15/09/2026 
 
 - **Outil/modèle : Claude Code (Claude Sonnet 5), LI Claude Code
-- **Contexte** : 
+- **Contexte** : On voulait bien vérifier que le projet était cohérent, que les contrats aussi et l'openAPI aussi
 - **Prompt** : Avant de continuer, est-ce que le contrat d'API est cohérent partout (HTTP et gRPC) ? Vérifie (documentation OpenAPI générée, réponses d'erreur, ce que le front suppose côté chaînes de caractères), corrige ce qui doit l'être, et fais-moi un point clair sur ce qui reste discutable. »
+- 
 
 ---
 
@@ -75,13 +56,11 @@ Gabarit d'entrée :
 - **Outil / modèle si connu** : Claude Code (Claude Sonnet 5), CLI Claude Code.
 - **Contexte** : le moteur de jeu et l'API avaient une bonne couverture de tests, mais aucun test n'exerçait le front lui-même — `BoardGrid`, `FleetSetup` et `Home.razor` n'étaient vérifiés que manuellement dans le navigateur.
 - **Prompt réellement utilisé** : « Il faut faire des tests sur le composant Blazor lui même et sur le front pour couvrir le maximum de code et de cas. »
-- **Réponse et hypothèses résumées** : création d'un projet de tests dédié `front/BattleShip.App.Tests` (xUnit + bUnit), séparé de `back/BattleShip.Tests` pour éviter une collision de types gRPC (les deux projets front et back génèrent chacun leur propre `BattleShip.API.Grpc.*` à partir du même `.proto`, avec des namespaces identiques mais des assemblies différentes — vérifié en pratique lors d'une tentative infructueuse de tout mettre dans le même projet). Introduction d'une interface `IGameStatsClient` pour permettre de substituer le client gRPC-Web dans les tests de `Home.razor` (le protocole gRPC-Web n'est pas simulable simplement, contrairement au JSON de `GameApiClient` qui est testé avec un vrai `HttpClient` branché sur un handler factice). Décision documentée dans [ADR 0005](docs/adr/0005-tests-composants-blazor.md).
-- **Décision et justification** : acceptée. `IGameStatsClient` est la première interface introduite côté front, mais justifiée par un besoin réel de substitution en test, pas une abstraction préventive.
-- **Scénario ou commande de vérification** : `dotnet build`/`dotnet test` sur l'ensemble de la solution ; vérification manuelle dans le navigateur que l'application fonctionne toujours à l'identique après l'introduction de `IGameStatsClient` (partie jouée, statistiques gRPC affichées).
-- **Résultat attendu, puis résultat observé** : attendu — compilation sans erreur, nouveaux tests de composants au vert, aucune régression sur les tests existants, application inchangée en conditions réelles. Observé — `dotnet build` : 0 erreur ; `dotnet test` : 64/64 tests réussis (36 dans `back/BattleShip.Tests`, 28 nouveaux dans `front/BattleShip.App.Tests` : 12 sur `BoardGrid`, 8 sur `FleetSetup`, 8 sur `Home.razor`) ; partie jouée et statistiques gRPC vérifiées dans le navigateur après le refactor.
-- **Erreur que ce contrôle pourrait détecter** : un état de case mal calculé ou mal désactivé dans `BoardGrid`, une validation de placement (chevauchement, débordement) qui laisserait passer un cas invalide dans `FleetSetup`, ou une régression dans la gestion des erreurs HTTP/gRPC de `Home.razor` (message d'erreur qui ne s'affiche plus, état qui ne se met plus à jour après un tir).
-- **Preuves reproductibles et liens vers les commits** : `front/BattleShip.App.Tests/Components/BoardGridTests.cs`, `front/BattleShip.App.Tests/Components/FleetSetupTests.cs`, `front/BattleShip.App.Tests/Pages/HomeTests.cs`.
-- **Limites et points non vérifiés** : les tests de `Home.razor` valident la logique d'orchestration (appels, mise à jour d'état, affichage) avec des réponses HTTP/gRPC simulées ; ils ne remplacent pas la vérification de bout en bout déjà faite manuellement dans le navigateur (sérialisation réelle, CORS, gRPC-Web réel). Le rendu mobile des composants n'est pas couvert par ces tests.
+- **Réponse et hypothèses résumées** : création d'un projet de tests dédié `front/BattleShip.App.Tests` (xUnit + bUnit), séparé de back/BattleShip.Tests. le protocole gRPC-Web n'est pas simulable simplement, contrairement au JSON de GameApiClient, Décision documentée dans (docs/adr/0005-tests-composants-blazor.md).
+- **Scénario ou commande de vérification** : `dotnet build`/`dotnet test` sur l'ensemble de la solution ; vérification manuelle dans le navigateur que l'application fonctionne toujours à l'identique après l'introduction de IGameStatsClient (partie jouée, statistiques gRPC affichées).
+- **Résultat attendu, puis résultat observé** : compilation sans erreur, nouveaux tests de composants au vert, aucune régression sur les tests existants, application inchangée en conditions réelles. Observé : dotnet build et dotnet test 
+- **Erreur que ce contrôle pourrait détecter** : un état de case mal calculé ou mal désactivé dans `BoardGrid`, une validation de placement (débordement de la grille) grace au tests on pourrait vreaiment detecter ces cas
+- **Limites et points non vérifiés** : les tests de `Home.razor` valident la logique du jeu avec des réponses HTTP/gRPC simulées ; ils ne remplacent pas la vérification de bout en bout déjà faite manuellement dans le navigateur mais renforce la detection d'erruers si ces tests ont bien été revu à la main (pour valider la logique métier codé par l'ia)
 -
 
 ---
@@ -91,13 +70,11 @@ Gabarit d'entrée :
 - **Outil / modèle si connu** : Claude Code (Claude Sonnet 5), CLI Claude Code.
 - **Contexte** : `GameStore` (stockage en mémoire des parties) n'avait aucun mécanisme de suppression : les parties terminées ou abandonnées restaient indéfiniment, une fuite mémoire sur un serveur qui tourne longtemps.
 - **Prompt réellement utilisé** : « il y'a une fuite de mémoire sur GameStore il me semble, il nettoie jamais les parties terminées / abandonnées.. corrige moi ça. »
-- **Réponse et hypothèses résumées** : ajout d'une date de dernière activité par partie (mise à jour à chaque `TryGet`, donc à chaque `GET /games/{id}` ou tir), d'une méthode `RemoveExpired(TimeSpan)` purgeant les parties inactives au-delà d'un délai (30 minutes), et d'un `GameCleanupService` (`BackgroundService`) qui l'appelle toutes les 5 minutes. Utilisation de `TimeProvider` (injecté, `TimeProvider.System` en production) plutôt que `DateTimeOffset.UtcNow` directement, pour rendre le mécanisme testable sans attendre du vrai temps — cohérent avec la diapo 33 du support qui enregistre déjà `TimeProvider.System` en singleton pour la même raison.
-- **Décision et justification** : acceptée. Un seul délai d'inactivité couvre à la fois les parties terminées jamais consultées à nouveau et les parties abandonnées en cours — pas besoin de distinguer les deux cas, une partie qu'on ne consulte plus (terminée ou non) doit finir par disparaître.
-- **Scénario ou commande de vérification** : tests unitaires avec `Microsoft.Extensions.Time.Testing.FakeTimeProvider` (avance le temps simulé sans attendre) ; `dotnet build`/`dotnet test` sur l'ensemble de la solution ; démarrage réel de l'API pour vérifier l'absence d'exception au lancement du `BackgroundService`.
-- **Résultat attendu, puis résultat observé** : attendu — une partie inactive depuis plus de 30 minutes est supprimée, une partie encore consultée dans ce délai ne l'est pas, un accès (`TryGet`) repousse l'expiration. Observé — `dotnet test` : 68/68 tests réussis (4 nouveaux dans `GameStoreTests.cs`) ; démarrage de l'API sans exception, `GameCleanupService` actif.
-- **Erreur que ce contrôle pourrait détecter** : une partie supprimée alors qu'elle est encore active (délai mal calculé), une partie qui ne serait jamais supprimée (bug dans `RemoveExpired`), ou une expiration qui ignorerait les accès récents (`TryGet` qui ne rafraîchirait pas l'activité).
-- **Preuves reproductibles et liens vers les commits** : `back/BattleShip.Tests/Api/GameStoreTests.cs` ; `back/BattleShip.API/GameStore.cs`, `back/BattleShip.API/GameCleanupService.cs`.
-- **Limites et points non vérifiés** : le déclenchement réel du `BackgroundService` après 5 minutes n'a pas été observé en conditions réelles (seul son démarrage sans erreur a été vérifié) ; la logique de purge elle-même est testée de façon déterministe via `FakeTimeProvider`, ce qui est la vérification pertinente pour cette partie du code.
+- **Réponse et hypothèses résumées** : ajout d'une date de dernière activité par partie (mise à jour à chaque `TryGet`, donc à chaque `GET /games/{id}` ou tir), d'une méthode `RemoveExpired(TimeSpan)` purgeant les parties inactives au-delà d'un délai (30 minutes), et d'un `GameCleanupService` qui l'appelle toutes les 5 minutes.
+- **Décision et justification** :  Un seul délai d'inactivité couvre à la fois les parties terminées jamais consultées à nouveau et les parties abandonnées en cours, pas besoin de distinguer les deux cas, une partie qu'on ne va plus dessuss (terminée ou non) doit finir par disparaître.
+- **Scénario ou commande de vérification** : 
+- **Résultat attendu, puis résultat observé** : Une partie inactive depuis plus de 30 minutes est supprimée, une partie encore consultée dans ce délai ne l'est pas, un accès repousse l'expiration. Observé :  `dotnet test` : 68/68 tests réussis (4 nouveaux dans GameStoreTests.cs)
+- **Erreur que ce contrôle pourrait détecter** : une partie supprimée alors qu'elle est encore active, une partie qui ne serait jamais supprimée, ou une expiration qui ignore les accès récents donc qui supprimerai quand meme une partiie.
 
 ---
 
@@ -105,13 +82,13 @@ Gabarit d'entrée :
 
 - **Outil / modèle si connu** : Claude Code (Claude Sonnet 5), CLI Claude Code.
 - **Prompt réellement utilisé** : « réintroduit moi le niveau de difficulté facile (random) fait un historique de partie »
-- **Réponse et hypothèses résumées** : réintroduction de `RandomComputerStrategy` (supprimée précédemment car inutilisée) comme niveau « Facile », centralisée avec `HuntTargetComputerStrategy` dans `ComputerStrategyFactory.Create(ComputerDifficulty, Random)` ; `CreateGameRequest` accepte un champ `Difficulty` optionnel (`null` = comportement précédent, difficile) ; `GameStore` associe la difficulté choisie à chaque partie, à côté de la date de dernière activité déjà suivie pour le nettoyage ; nouvel endpoint `GET /games` exposant l'historique (identifiant, statut, difficulté, dernière activité) ; côté front, une bascule Facile/Difficile et une section « Parties précédentes » sur l'écran d'accueil. Décision documentée dans [ADR 0006](docs/adr/0006-difficulte-et-historique.md). La troisième demande (fonctionnalité différenciante) a été traitée à part : plusieurs pistes ont été proposées au binôme pour décision commune plutôt qu'un choix unilatéral.
+- **Réponse et hypothèses résumées** : réintroduction de `RandomComputerStrategy` (supprimée précédemment car inutilisée) comme niveau « Facile », `CreateGameRequest` accepte un champ `Difficulty` optionnel (`null` = comportement précédent, difficile),  `GameStore` associe la difficulté choisie à chaque partie, à côté de la date de dernière activité déjà suivie pour le nettoyage ; nouvel endpoint `GET /games` exposant l'historique (identifiant, statut, difficulté, dernière activité) ; côté front, une bascule Facile/Difficile et une section « Parties précédentes » sur l'écran d'accueil. Décision documentée dans (docs/adr/0006-difficulte-et-historique.md). 
 - **Décision et justification** : acceptée. La difficulté est traitée comme une métadonnée d'API (dans `GameStore`), pas comme une propriété du domaine (`Game`) : le moteur de jeu n'a besoin de recevoir qu'un `IComputerStrategy` concret, il n'a pas à savoir comment on l'a nommé — cohérent avec l'indépendance du moteur déjà actée ([ADR 0001](docs/adr/0001-structure-solution.md)).
 - **Scénario ou commande de vérification** : `dotnet build`/`dotnet test` sur l'ensemble de la solution ; vérification manuelle dans le navigateur (bascule de difficulté, création d'une partie, retour à l'écran de configuration, apparition dans l'historique).
-- **Résultat attendu, puis résultat observé** : attendu — compilation sans erreur, nouveaux tests au vert, l'historique doit afficher une partie créée puis abandonnée avec sa difficulté et son statut « En cours ». Observé — `dotnet build` : 0 erreur ; `dotnet test` : 76/76 tests réussis (45 back, 31 front) ; dans le navigateur, une partie en difficulté « Difficile » créée puis abandonnée apparaît bien dans « Parties précédentes » avec la date, la difficulté et le statut corrects.
-- **Erreur que ce contrôle pourrait détecter** : une difficulté « Easy » qui utiliserait quand même la stratégie « chasse puis cible » (ou l'inverse), une difficulté invalide acceptée silencieusement au lieu de renvoyer 400, ou une partie absente de l'historique alors qu'elle existe encore dans `GameStore`.
-- **Preuves reproductibles et liens vers les commits** : `back/BattleShip.Tests/Domain/ComputerStrategyFactoryTests.cs`, tests ajoutés dans `back/BattleShip.Tests/Api/GamesEndpointsTests.cs` (difficulté, `GET /games`), tests ajoutés dans `front/BattleShip.App.Tests/Pages/HomeTests.cs` (bascule de difficulté envoyée à l'API, rendu de l'historique, absence de section si aucun historique).
-- **Limites et points non vérifiés** : l'historique n'est pas persistant — il partage la fenêtre de 30 minutes du nettoyage automatique ([entrée précédente](#15092026-nettoyage-des-parties-inactives-dans-gamestore)) et disparaît avec la partie purgée. Le niveau « Facile » n'a pas été comparé statistiquement au niveau « Difficile » (nombre moyen de coups pour gagner).
+- **Résultat attendu, puis résultat observé** : compilation sans erreur, nouveaux tests au vert, l'historique doit afficher un choix de difficulté  Observation :  dans le navigateur, une partie en difficulté « Difficile » créée puis abandonnée apparaît bien dans « Parties précédentes » avec la date, la difficulté et le statut corrects et on a bien le niveau facile.
+- **Erreur que ce contrôle pourrait détecter** : une difficulté « Facile » qui utiliserait quand même la stratégie « chasse puis cible » alors que l'on veut vraiment de l'aléatoire poru que le jeu soit vraiment facile.
+- **Preuves reproductibles et liens vers les commits** 
+- **Limites et points non vérifiés** : l'historique n'est pas persistant, il partage la fenêtre de 30 minutes du nettoyage automatique et disparaît avec la partie. Le niveau « Facile » n'a pas été comparé statistiquement au niveau « Difficile » (nombre moyen de coups pour gagner).
 
 ---
 
